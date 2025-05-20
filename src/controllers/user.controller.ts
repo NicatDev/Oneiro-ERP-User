@@ -3,7 +3,6 @@ import { initDB } from '../config/database';
 import { User } from '../models/user.models';
 import bcrypt from 'bcryptjs';
 
-
 const filterUsers = (filters: { [key: string]: string | undefined }): { query: string, params: any[] } => {
   let filterConditions: string[] = [];
   let queryParams: any[] = [];
@@ -26,9 +25,27 @@ const filterUsers = (filters: { [key: string]: string | undefined }): { query: s
   return { query, params: queryParams };
 };
 
+const searchUsers = (searchTerm: string | undefined): { query: string, params: any[] } => {
+  let searchConditions: string[] = [];
+  let queryParams: any[] = [];
+
+  if (searchTerm) {
+    const searchValue = searchTerm.toLowerCase(); 
+
+    const searchFields = ['first_name', 'last_name', 'email', 'phone_number'];
+
+    searchFields.forEach((field) => {
+      searchConditions.push(`${field} LIKE ?`);
+      queryParams.push(`%${searchValue}%`); 
+    });
+  }
+
+  const query = searchConditions.length > 0 ? `(${searchConditions.join(' OR ')})` : '';
+  return { query, params: queryParams };
+};
 
 const sortUsers = (filters: { [key: string]: string | undefined }): { query: string, params: any[] } => {
-  const sortField = Object.keys(filters).find(key => key.startsWith('sort['))?.replace('sort[', '').replace(']', ''); // sort parametrelerini dinamik olarak alıyoruz
+  const sortField = Object.keys(filters).find(key => key.startsWith('sort['))?.replace('sort[', '').replace(']', ''); 
 
   let sortOrder: 'ASC' | 'DESC' | undefined;
   if (sortField) {
@@ -41,7 +58,7 @@ const sortUsers = (filters: { [key: string]: string | undefined }): { query: str
   }
 
   const query = sortField && sortOrder ? `ORDER BY ${sortField} ${sortOrder}` : '';
-  return { query, params: [] }; // Sort işlemi eklemek için herhangi bir parametre gerekmez.
+  return { query, params: [] };
 };
 
 export const getUsers = async (req: Request, res: Response) => {
@@ -49,18 +66,24 @@ export const getUsers = async (req: Request, res: Response) => {
   const pageSize = parseInt(req.query.pageSize as string) || 10;  
   const offset = (page - 1) * pageSize;
 
-  // req.query'yi doğru şekilde tipliyoruz
   const filters = req.query as { [key: string]: string | undefined };
 
   try {
     const db = await initDB();
 
     const { query: filterQuery, params: filterParams } = filterUsers(filters);
-
+    const { query: searchQuery, params: searchParams } = searchUsers(filters.search);
     const { query: sortQuery } = sortUsers(filters);
 
-    let query = `SELECT * FROM users ${filterQuery} ${sortQuery} LIMIT ? OFFSET ?`;
-    let queryParams = [...filterParams, pageSize, offset];
+    let query = `SELECT * FROM users ${filterQuery}`;
+    let queryParams = [...filterParams, ...searchParams];
+
+    if (searchQuery) {
+      query += filterQuery ? ` AND ${searchQuery}` : ` WHERE ${searchQuery}`;
+    }
+
+    query += ` ${sortQuery} LIMIT ? OFFSET ?`;
+    queryParams.push(pageSize, offset);
 
     const users: User[] = await db.all(query, queryParams);
 
