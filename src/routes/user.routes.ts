@@ -8,6 +8,7 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
 };
 
 router.post("/register", asyncHandler(createUser));
+
 router.get("/get", asyncHandler(getUsers));
 
 export default router;

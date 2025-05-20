@@ -2,6 +2,7 @@ export interface User {
   uuid: string; 
   first_name: string;
   last_name: string;
+  password_hash: string;
   username: string;
   email?: string;
   phone_number?: string;

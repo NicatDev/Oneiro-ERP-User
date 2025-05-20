@@ -20,6 +20,7 @@ export const initDB = async () => {
       first_name TEXT,
       last_name TEXT,
       username TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
       email TEXT,
       phone_number TEXT,
       created_at TEXT,
