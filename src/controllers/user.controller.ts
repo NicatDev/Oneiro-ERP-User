@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { initDB } from '../config/database';
+import { User } from '../models/user.models';
+
 
 export const getUsers = async (req: Request, res: Response) => {
   const db = await initDB();
@@ -8,21 +10,35 @@ export const getUsers = async (req: Request, res: Response) => {
 };
 
 export const createUser = async (req: Request, res: Response) => {
-  const { name, email } = req.body;
-
-  if (!name || !email) {
-    return res.status(400).json({ error: 'Name and email are required' });
+  const { first_name, last_name, username, email, phone_number, is_active } = req.body;
+  const db = await initDB();
+  if (!first_name || !last_name || !username) {
+    return res.status(400).json({ message: 'First name, last name, and username are required.' });
   }
 
   try {
-    const db = await initDB();
-    await db.run('INSERT INTO users (name, email) VALUES (?, ?)', [name, email]);
-    res.status(201).json({ message: 'User created' });
-  } catch (err: any) {
-    if (err.code === 'SQLITE_CONSTRAINT') {
-      res.status(400).json({ error: 'Email already exists' });
-    } else {
-      res.status(500).json({ error: 'Something went wrong' });
-    }
+    const userUuid = generateUuid();
+    const createdAt = new Date().toISOString();
+
+    await db.run(`
+      INSERT INTO users (uuid, first_name, last_name, username, email, phone_number, created_at, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
+      [userUuid, first_name, last_name, username, email, phone_number, createdAt, is_active ? 1 : 0]
+    );
+
+    const newUser = await db.get('SELECT * FROM users WHERE uuid = ?', [userUuid]);
+
+    return res.status(201).json(newUser);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'An error occurred while creating the user.' });
   }
+};
+
+const generateUuid = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 };
