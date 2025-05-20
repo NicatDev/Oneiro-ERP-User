@@ -1,8 +1,13 @@
-import { Router } from 'express';
-import { getUsers } from '../controllers/user.controller';
+import { getUsers, createUser } from '../controllers/user.controller';
+import express from "express"
 
-const router = Router();
+const router = express.Router();
 
-router.get('/', getUsers);
+const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+router.post("/register", asyncHandler(createUser));
+router.get("/get", asyncHandler(getUsers));
 
 export default router;
