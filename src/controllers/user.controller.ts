@@ -1,69 +1,83 @@
 import { Request, Response } from 'express';
 import { initDB } from '../config/database';
 import { User } from '../models/user.models';
+import { sortData, filterData, searchData } from '../utils/queryBuilder';
 import bcrypt from 'bcryptjs';
 
-const filterUsers = (filters: { [key: string]: string | undefined }): { query: string, params: any[] } => {
-  let filterConditions: string[] = [];
-  let queryParams: any[] = [];
 
-  Object.keys(filters).forEach((key) => {
-    if (key.startsWith('filter[')) {
-      const fieldName = key.replace('filter[', '').replace(']', '');
-      if (filters[key] === '') {
-        return;
+const allowedFields = ['first_name', 'last_name', 'email', 'username', 'phone_number', 'is_active'];
+const allowedUpdateFields = ['first_name', 'last_name', 'email', 'username'];
+
+export const updateUser = async (req: Request, res: Response) => {
+  const { uuid } = req.params;
+  const updates = req.body;
+
+  if (!uuid) {
+    return res.status(400).json({ message: 'UUID belirtilmelidir.' });
+  }
+
+  try {
+    const db = await initDB();
+
+    const fieldsToUpdate: string[] = [];
+    const values: any[] = [];
+
+    allowedUpdateFields.forEach((field) => {
+      if (updates[field] !== undefined) {
+        fieldsToUpdate.push(`${field} = ?`);
+        values.push(updates[field]);
       }
-
-      if (fieldName !== 'password' && fieldName !== 'last_login') {
-        filterConditions.push(`${fieldName} = ?`);
-        queryParams.push(filters[key]);
-      }
-    }
-  });
-
-  const query = filterConditions.length > 0 ? `WHERE ${filterConditions.join(' AND ')}` : '';
-  return { query, params: queryParams };
-};
-
-const searchUsers = (searchTerm: string | undefined): { query: string, params: any[] } => {
-  let searchConditions: string[] = [];
-  let queryParams: any[] = [];
-
-  if (searchTerm) {
-    const searchValue = searchTerm.toLowerCase(); 
-
-    const searchFields = ['first_name', 'last_name', 'email', 'phone_number'];
-
-    searchFields.forEach((field) => {
-      searchConditions.push(`${field} LIKE ?`);
-      queryParams.push(`%${searchValue}%`); 
     });
-  }
 
-  const query = searchConditions.length > 0 ? `(${searchConditions.join(' OR ')})` : '';
-  return { query, params: queryParams };
-};
-
-const sortUsers = (filters: { [key: string]: string | undefined }): { query: string, params: any[] } => {
-  const sortField = Object.keys(filters).find(key => key.startsWith('sort['))?.replace('sort[', '').replace(']', ''); 
-
-  let sortOrder: 'ASC' | 'DESC' | undefined;
-  if (sortField) {
-    const order = filters[`sort[${sortField}]`];
-    if (order === 'desc') {
-      sortOrder = 'DESC';
-    } else if (order === 'asc') {
-      sortOrder = 'ASC';
+    if (fieldsToUpdate.length === 0) {
+      return res.status(400).json({ message: 'Güncellenecek geçerli bir alan belirtilmedi.' });
     }
+
+    const query = `UPDATE users SET ${fieldsToUpdate.join(', ')} WHERE uuid = ?`;
+    values.push(uuid);
+
+    await db.run(query, values);
+
+    const updatedUser = await db.get('SELECT * FROM users WHERE uuid = ?', [uuid]);
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
+    }
+
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Kullanıcı güncellenirken bir hata oluştu.' });
+  }
+};
+
+
+export const getUserFilterableDatas = async (req: Request, res: Response) => {
+  const field = req.query.field as string;
+
+  if (!field || !allowedFields.includes(field)) {
+    return res.status(400).json({ message: 'Invalid or missing field parameter' });
   }
 
-  const query = sortField && sortOrder ? `ORDER BY ${sortField} ${sortOrder}` : '';
-  return { query, params: [] };
+  try {
+    const db = await initDB();
+
+    const query = `SELECT DISTINCT ${field} FROM users WHERE ${field} IS NOT NULL`;
+    const rows = await db.all(query);
+
+    const values = rows.map(row => row[field]);
+
+    res.status(200).json({ data: values });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error', error: 'An unexpected error occurred.' });
+  }
 };
+
 
 export const getUsers = async (req: Request, res: Response) => {
-  const page = parseInt(req.query.page as string) || 1;  
-  const pageSize = parseInt(req.query.pageSize as string) || 10;  
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = parseInt(req.query.pageSize as string) || 10;
   const offset = (page - 1) * pageSize;
 
   const filters = req.query as { [key: string]: string | undefined };
@@ -71,9 +85,9 @@ export const getUsers = async (req: Request, res: Response) => {
   try {
     const db = await initDB();
 
-    const { query: filterQuery, params: filterParams } = filterUsers(filters);
-    const { query: searchQuery, params: searchParams } = searchUsers(filters.search);
-    const { query: sortQuery } = sortUsers(filters);
+    const { query: filterQuery, params: filterParams } = filterData(filters);
+    const { query: searchQuery, params: searchParams } = searchData(filters.search);
+    const { query: sortQuery } = sortData(filters);
 
     let query = `SELECT * FROM users ${filterQuery}`;
     let queryParams = [...filterParams, ...searchParams];
@@ -91,12 +105,13 @@ export const getUsers = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'No users found.' });
     }
 
-    res.json(users); 
+    res.json(users);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error', error: 'An unexpected error occurred.' }); 
+    res.status(500).json({ message: 'Server error', error: 'An unexpected error occurred.' });
   }
 };
+
 
 export const createUser = async (req: Request, res: Response) => {
   const { first_name, last_name, username, email, phone_number, password_hash, is_active } = req.body;
@@ -112,7 +127,7 @@ export const createUser = async (req: Request, res: Response) => {
 
     await db.run(`
       INSERT INTO users (uuid, first_name, last_name, username, email, phone_number, created_at, password_hash, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [userUuid, first_name, last_name, username, email, phone_number, createdAt, passwordHash, is_active ? 1 : 0]
     );
 
