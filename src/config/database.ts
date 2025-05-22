@@ -78,6 +78,7 @@ export const initDB = async () => {
       icon TEXT,
       path TEXT
     );
+    
   `);
 
   console.log('✅ DB is ok.');
