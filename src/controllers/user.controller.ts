@@ -141,3 +141,34 @@ export const createUser = async (req: Request, res: Response) => {
   }
 };
 
+
+export const changeStatus = async (req: Request, res: Response) => {
+  const { uuid } = req.params;
+  const { is_active } = req.body;
+
+  if (!uuid || typeof is_active !== 'boolean') {
+    return res.status(400).json({ message: 'Bo.' });
+  }
+
+  try {
+    const db = await initDB();
+
+    const existingUser: User | undefined = await db.get('SELECT * FROM users WHERE uuid = ?', [uuid]);
+
+    if (!existingUser) {
+      return res.status(404).json({ message: 'İstifadəçi tapılmadı.' });
+    }
+
+    await db.run('UPDATE users SET is_active = ? WHERE uuid = ?', [is_active ? 1 : 0, uuid]);
+
+    const updatedUser = await db.get('SELECT * FROM users WHERE uuid = ?', [uuid]);
+
+    res.status(200).json({
+      message: `İstifadəçi statusu ${is_active ? 'aktiv edildi' : 'deaktiv edildi'}.`,
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Status dəyişdirilərkən server xətası baş verdi.' });
+  }
+};

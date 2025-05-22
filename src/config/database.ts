@@ -80,6 +80,6 @@ export const initDB = async () => {
     );
   `);
 
-  console.log('✅ Veritabanı hazır.');
+  console.log('✅ DB is ok.');
   return db;
 };

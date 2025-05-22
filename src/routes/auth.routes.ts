@@ -1,4 +1,4 @@
-import { login, logout } from '../controllers/auth.controller';
+import { login, logout, refreshToken } from '../controllers/auth.controller';
 import express from "express"
 
 const router = express.Router();
@@ -45,5 +45,6 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
  */
 router.post("/login", asyncHandler(login));
 router.post("/logout", asyncHandler(logout));
+router.post("/refresh", asyncHandler(refreshToken));
 
 export default router;

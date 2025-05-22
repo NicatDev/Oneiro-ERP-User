@@ -67,6 +67,48 @@ export const login = async (req: Request, res: Response) => {
 };
 
 
+export const refreshToken = async (req: Request, res: Response) => {
+  const { refresh_token } = req.body;
+
+  if (!refresh_token) {
+    return res.status(400).json({ message: 'Refresh token is required' });
+  }
+
+  try {
+    const decoded = jwt.verify(refresh_token, REFRESH_TOKEN_SECRET) as JwtPayload;
+    const db = await initDB();
+
+    const storedToken: RefreshToken | undefined = await db.get(
+      'SELECT * FROM refresh_tokens WHERE token = ?',
+      [refresh_token]
+    );
+
+    if (!storedToken || storedToken.revoked) {
+      return res.status(403).json({ message: 'Invalid or revoked refresh token' });
+    }
+
+    const newAccessTokenPayload: JwtPayload = {
+      sub: decoded.sub,
+      email: decoded.email || '',
+      role: 'user',
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + (60 * 60), 
+    };
+
+    const newAccessToken = jwt.sign(newAccessTokenPayload, ACCESS_TOKEN_SECRET);
+
+    res.json({
+      access_token: newAccessToken,
+      refresh_token: refresh_token 
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+};
+
+
 export const logout = async (req: Request, res: Response) => {
   const { refresh_token } = req.body;
 
