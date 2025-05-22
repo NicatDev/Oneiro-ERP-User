@@ -35,7 +35,7 @@ export const login = async (req: Request, res: Response) => {
     const accessToken = jwt.sign(accessTokenPayload, ACCESS_TOKEN_SECRET);
 
     const refreshToken: string = jwt.sign({ sub: user.uuid }, REFRESH_TOKEN_SECRET, {
-      expiresIn: '7d', 
+      expiresIn: '10y', 
     });
 
     const refreshTokenData: RefreshToken = {
@@ -63,5 +63,26 @@ export const login = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Sunucu hatası.' });
+  }
+};
+
+
+export const logout = async (req: Request, res: Response) => {
+  const { refresh_token } = req.body;
+
+  try {
+    const db = await initDB();
+
+    const tokenData: RefreshToken | undefined = await db.get('SELECT * FROM refresh_tokens WHERE token = ?', [refresh_token]);
+    if (!tokenData || tokenData.revoked) {
+      return res.status(400).json({ message: 'Token is not valid' });
+    }
+
+    await db.run('UPDATE refresh_tokens SET revoked = 1 WHERE token = ?', [refresh_token]);
+
+    res.status(200).json({ message: 'Log out' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 };

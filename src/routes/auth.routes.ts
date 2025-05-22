@@ -1,4 +1,4 @@
-import { login } from '../controllers/auth.controller';
+import { login, logout } from '../controllers/auth.controller';
 import express from "express"
 
 const router = express.Router();
@@ -44,5 +44,6 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
  *         description: Server error
  */
 router.post("/login", asyncHandler(login));
+router.post("/logout", asyncHandler(logout));
 
 export default router;
