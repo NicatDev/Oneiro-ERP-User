@@ -1,6 +1,11 @@
 import swaggerJSDoc from 'swagger-jsdoc';
 import { docs } from '../docs/index'
 
+const isLocal = process.env.NODE_ENV === 'Local';
+const serverUrl = isLocal
+  ? 'http://localhost:3000/api'
+  : 'http://135.181.198.134/api';
+
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -35,7 +40,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: 'http://localhost:3000/api',
+        url: serverUrl,
       },
     ],
   },

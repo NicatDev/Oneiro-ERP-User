@@ -13,7 +13,7 @@ export const updateUser = async (req: Request, res: Response) => {
   const updates = req.body;
 
   if (!uuid) {
-    return res.status(400).json({ message: 'UUID belirtilmelidir.' });
+    return res.status(400).json({ message: 'No uuid found.' });
   }
 
   try {
@@ -29,7 +29,7 @@ export const updateUser = async (req: Request, res: Response) => {
     });
 
     if (fieldsToUpdate.length === 0) {
-      return res.status(400).json({ message: 'Güncellenecek geçerli bir alan belirtilmedi.' });
+      return res.status(400).json({ message: 'No field to update.' });
     }
 
     values.push(uuid);
@@ -41,13 +41,13 @@ export const updateUser = async (req: Request, res: Response) => {
     const updatedUser = rows[0];
 
     if (!updatedUser) {
-      return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
+      return res.status(404).json({ message: 'User not found.' });
     }
 
     res.status(200).json(updatedUser);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Kullanıcı güncellenirken bir hata oluştu.' });
+    res.status(500).json({ message: 'Server error.' });
   }
 };
 
@@ -109,21 +109,53 @@ export const getUsers = async (req: Request, res: Response) => {
 export const createUser = async (req: Request, res: Response) => {
   const { first_name, last_name, username, email, phone_number, password_hash, is_active } = req.body;
 
-  if (!first_name || !last_name || !username) {
-    return res.status(400).json({ message: 'First name, last name, and username are required.' });
+  if (!first_name) {
+    return res.status(400).json({ message: 'First name is required.' });
+  } else if (!last_name) {
+    return res.status(400).json({ message: 'Last name is required.' });
+  } else if (!username) {
+    return res.status(400).json({ message: 'Username is required.' });
+  } else if (!email) {
+    return res.status(400).json({ message: 'Email is required.' });
+  } else if (!password_hash) {
+    return res.status(400).json({ message: 'Password is required.' });
+  } else if (password_hash?.length<5){
+        return res.status(400).json({ message: 'Password is too short.' });
   }
 
   try {
+    const checkQuery = `
+      SELECT * FROM users WHERE username = $1 OR email = $2
+    `;
+    const { rows: existingUsers } = await pool.query(checkQuery, [username, email]);
+
+    if (existingUsers.length > 0) {
+      const usernameExists = existingUsers.some(user => user.username === username);
+      const emailExists = existingUsers.some(user => user.email === email);
+
+      let message = '';
+      if (usernameExists && emailExists) {
+        message = 'Username and Email are already in use.';
+      } else if (usernameExists) {
+        message = 'Username is already in use.';
+      } else if (emailExists) {
+        message = 'Email is already in use.';
+      }
+
+      return res.status(400).json({ message });
+    }
+
     const userUuid = generateUuid();
     const createdAt = new Date().toISOString();
     const passwordHash = await bcrypt.hash(password_hash, 10);
 
-    const query = `
+    const insertQuery = `
       INSERT INTO users (uuid, first_name, last_name, username, email, phone_number, created_at, password_hash, is_active)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING *`;
+      RETURNING *
+    `;
 
-    const { rows } = await pool.query(query, [
+    const { rows } = await pool.query(insertQuery, [
       userUuid,
       first_name,
       last_name,
@@ -132,17 +164,19 @@ export const createUser = async (req: Request, res: Response) => {
       phone_number,
       createdAt,
       passwordHash,
-      is_active ? 1 : 0
+      is_active ? 1 : 0,
     ]);
 
     const newUser = rows[0];
 
     return res.status(201).json(newUser);
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'An error occurred while creating the user.' });
   }
 };
+
 
 export const changeStatus = async (req: Request, res: Response) => {
   const { uuid } = req.params;

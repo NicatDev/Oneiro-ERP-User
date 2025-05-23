@@ -7,6 +7,11 @@ import { v4 as uuidv4 } from 'uuid';
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 // LOGIN
+
+if (!ACCESS_TOKEN_SECRET || !REFRESH_TOKEN_SECRET) {
+  throw new Error('Missing ACCESS_TOKEN_SECRET or REFRESH_TOKEN_SECRET in environment variables');
+}
+
 export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body;
 
@@ -15,12 +20,12 @@ export const login = async (req: Request, res: Response) => {
     const user = result.rows[0];
 
     if (!user) {
-      return res.status(401).json({ message: 'Geçersiz kullanıcı adı veya şifre.' });
+      return res.status(401).json({ message: 'Invalid username or password.' });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Geçersiz kullanıcı adı veya şifre.' });
+      return res.status(401).json({ message: 'Invalid username or password.' });
     }
 
     const accessTokenPayload = {

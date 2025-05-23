@@ -52,6 +52,6 @@ export const getModulesWithForms = async (req: Request, res: Response) => {
     res.status(200).json(resultArray);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Modul və formalar gətirilərkən xəta baş verdi.' });
+    res.status(500).json({ message: 'Server error.' });
   }
 };

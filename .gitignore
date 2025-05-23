@@ -19,7 +19,7 @@ pids
 dist/
 build/
 *.tsbuildinfo
-
+.env
 # IDE/editor dosyaları
 .vscode/
 .idea/
