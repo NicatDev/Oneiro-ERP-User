@@ -15,10 +15,6 @@ pids
 *.seed
 *.pid.lock
 
-# dotenv environment variables
-.env
-.env.*.local
-
 # TypeScript
 dist/
 build/

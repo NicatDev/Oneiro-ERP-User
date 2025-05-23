@@ -3,8 +3,12 @@ import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swaggerConfig'; 
 import routes from './routes';
+import cors from 'cors';
+
 
 const app = express();
+
+app.use(cors());
 
 app.use(express.json());
 

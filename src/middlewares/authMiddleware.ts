@@ -12,6 +12,7 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     req.user = decoded; 
     next();  
   } catch (err) {
+    console.log(err)
     return res.status(401).json({ message: 'Access Token is not valid' });
   }
 };

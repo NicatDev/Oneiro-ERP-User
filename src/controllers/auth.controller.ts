@@ -4,9 +4,8 @@ import jwt from 'jsonwebtoken';
 import pool from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'your_access_token_secret';
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your_refresh_token_secret';
-
+const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 // LOGIN
 export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body;
