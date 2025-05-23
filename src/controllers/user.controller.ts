@@ -1,10 +1,9 @@
 import { generateUuid } from './../utils/uuidGenerator';
 import { Request, Response } from 'express';
-import { initDB } from '../config/database';
+import pool from '../config/database';  // pg pool importu
 import { User } from '../models/user.models';
 import { sortData, filterData, searchData } from '../utils/queryBuilder';
 import bcrypt from 'bcryptjs';
-
 
 const allowedFields = ['first_name', 'last_name', 'email', 'username', 'phone_number', 'is_active'];
 const allowedUpdateFields = ['first_name', 'last_name', 'email', 'username'];
@@ -18,14 +17,13 @@ export const updateUser = async (req: Request, res: Response) => {
   }
 
   try {
-    const db = await initDB();
-
     const fieldsToUpdate: string[] = [];
     const values: any[] = [];
 
-    allowedUpdateFields.forEach((field) => {
+    allowedUpdateFields.forEach((field, index) => {
       if (updates[field] !== undefined) {
-        fieldsToUpdate.push(`${field} = ?`);
+        // pg parametreler $1, $2, ... formatında
+        fieldsToUpdate.push(`${field} = $${index + 1}`);
         values.push(updates[field]);
       }
     });
@@ -34,12 +32,13 @@ export const updateUser = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Güncellenecek geçerli bir alan belirtilmedi.' });
     }
 
-    const query = `UPDATE users SET ${fieldsToUpdate.join(', ')} WHERE uuid = ?`;
     values.push(uuid);
+    const query = `UPDATE users SET ${fieldsToUpdate.join(', ')} WHERE uuid = $${values.length}`;
 
-    await db.run(query, values);
+    await pool.query(query, values);
 
-    const updatedUser = await db.get('SELECT * FROM users WHERE uuid = ?', [uuid]);
+    const { rows } = await pool.query('SELECT * FROM users WHERE uuid = $1', [uuid]);
+    const updatedUser = rows[0];
 
     if (!updatedUser) {
       return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
@@ -52,7 +51,6 @@ export const updateUser = async (req: Request, res: Response) => {
   }
 };
 
-
 export const getUserFilterableDatas = async (req: Request, res: Response) => {
   const field = req.query.field as string;
 
@@ -61,10 +59,8 @@ export const getUserFilterableDatas = async (req: Request, res: Response) => {
   }
 
   try {
-    const db = await initDB();
-
     const query = `SELECT DISTINCT ${field} FROM users WHERE ${field} IS NOT NULL`;
-    const rows = await db.all(query);
+    const { rows } = await pool.query(query);
 
     const values = rows.map(row => row[field]);
 
@@ -75,7 +71,6 @@ export const getUserFilterableDatas = async (req: Request, res: Response) => {
   }
 };
 
-
 export const getUsers = async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
   const pageSize = parseInt(req.query.pageSize as string) || 10;
@@ -84,8 +79,6 @@ export const getUsers = async (req: Request, res: Response) => {
   const filters = req.query as { [key: string]: string | undefined };
 
   try {
-    const db = await initDB();
-
     const { query: filterQuery, params: filterParams } = filterData(filters);
     const { query: searchQuery, params: searchParams } = searchData(filters.search);
     const { query: sortQuery } = sortData(filters);
@@ -97,10 +90,10 @@ export const getUsers = async (req: Request, res: Response) => {
       query += filterQuery ? ` AND ${searchQuery}` : ` WHERE ${searchQuery}`;
     }
 
-    query += ` ${sortQuery} LIMIT ? OFFSET ?`;
+    query += ` ${sortQuery} LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
     queryParams.push(pageSize, offset);
 
-    const users: User[] = await db.all(query, queryParams);
+    const { rows: users } = await pool.query(query, queryParams);
 
     if (users.length === 0) {
       return res.status(404).json({ message: 'No users found.' });
@@ -113,10 +106,9 @@ export const getUsers = async (req: Request, res: Response) => {
   }
 };
 
-
 export const createUser = async (req: Request, res: Response) => {
   const { first_name, last_name, username, email, phone_number, password_hash, is_active } = req.body;
-  const db = await initDB();
+
   if (!first_name || !last_name || !username) {
     return res.status(400).json({ message: 'First name, last name, and username are required.' });
   }
@@ -126,13 +118,24 @@ export const createUser = async (req: Request, res: Response) => {
     const createdAt = new Date().toISOString();
     const passwordHash = await bcrypt.hash(password_hash, 10);
 
-    await db.run(`
+    const query = `
       INSERT INTO users (uuid, first_name, last_name, username, email, phone_number, created_at, password_hash, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userUuid, first_name, last_name, username, email, phone_number, createdAt, passwordHash, is_active ? 1 : 0]
-    );
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *`;
 
-    const newUser = await db.get('SELECT * FROM users WHERE uuid = ?', [userUuid]);
+    const { rows } = await pool.query(query, [
+      userUuid,
+      first_name,
+      last_name,
+      username,
+      email,
+      phone_number,
+      createdAt,
+      passwordHash,
+      is_active ? 1 : 0
+    ]);
+
+    const newUser = rows[0];
 
     return res.status(201).json(newUser);
   } catch (error) {
@@ -141,31 +144,28 @@ export const createUser = async (req: Request, res: Response) => {
   }
 };
 
-
 export const changeStatus = async (req: Request, res: Response) => {
   const { uuid } = req.params;
   const { is_active } = req.body;
 
   if (!uuid || typeof is_active !== 'boolean') {
-    return res.status(400).json({ message: 'Bo.' });
+    return res.status(400).json({ message: 'UUID and is_active must be provided.' });
   }
 
   try {
-    const db = await initDB();
+    const { rows: existingUsers } = await pool.query('SELECT * FROM users WHERE uuid = $1', [uuid]);
 
-    const existingUser: User | undefined = await db.get('SELECT * FROM users WHERE uuid = ?', [uuid]);
-
-    if (!existingUser) {
+    if (existingUsers.length === 0) {
       return res.status(404).json({ message: 'İstifadəçi tapılmadı.' });
     }
 
-    await db.run('UPDATE users SET is_active = ? WHERE uuid = ?', [is_active ? 1 : 0, uuid]);
+    await pool.query('UPDATE users SET is_active = $1 WHERE uuid = $2', [is_active ? 1 : 0, uuid]);
 
-    const updatedUser = await db.get('SELECT * FROM users WHERE uuid = ?', [uuid]);
+    const { rows: updatedUsers } = await pool.query('SELECT * FROM users WHERE uuid = $1', [uuid]);
 
     res.status(200).json({
       message: `İstifadəçi statusu ${is_active ? 'aktiv edildi' : 'deaktiv edildi'}.`,
-      user: updatedUser
+      user: updatedUsers[0]
     });
   } catch (error) {
     console.error(error);

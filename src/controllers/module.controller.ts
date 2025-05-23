@@ -1,10 +1,8 @@
 import { Request, Response } from 'express';
-import { initDB } from '../config/database';
+import pool from '../config/database';  // pool'u import et
 
 export const getModulesWithForms = async (req: Request, res: Response) => {
   try {
-    const db = await initDB();
-
     const query = `
       SELECT 
         m.uuid AS module_uuid,
@@ -21,7 +19,8 @@ export const getModulesWithForms = async (req: Request, res: Response) => {
       LEFT JOIN forms f ON m.uuid = f.module_uuid
     `;
 
-    const rows = await db.all(query);
+    const result = await pool.query(query);
+    const rows = result.rows;
 
     const modulesMap: { [key: string]: any } = {};
 
@@ -48,9 +47,9 @@ export const getModulesWithForms = async (req: Request, res: Response) => {
       }
     });
 
-    const result = Object.values(modulesMap);
+    const resultArray = Object.values(modulesMap);
 
-    res.status(200).json(result);
+    res.status(200).json(resultArray);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Modul və formalar gətirilərkən xəta baş verdi.' });
