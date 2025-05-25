@@ -82,7 +82,9 @@ export const initDB = async () => {
         icon TEXT,
         path TEXT
       );
+
     `);
+
 
     // forms cədvəli
     await pool.query(`

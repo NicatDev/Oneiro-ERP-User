@@ -1,4 +1,4 @@
-import { getUsers, createUser, getUserFilterableDatas, updateUser, changeStatus } from '../controllers/user.controller';
+import { getUsers, createUser, getUserFilterableDatas, updateUser, changeStatus, getSingleUser } from '../controllers/user.controller';
 import express from "express"
 import authMiddleware from '../middlewares/authMiddleware'
 
@@ -13,5 +13,6 @@ router.get("/getUserFilterableDatas",asyncHandler(authMiddleware), asyncHandler(
 router.get("/",asyncHandler(authMiddleware), asyncHandler(getUsers));
 router.patch('/:uuid',asyncHandler(authMiddleware), asyncHandler(updateUser));
 router.put('/changeStatus/:uuid',asyncHandler(authMiddleware), asyncHandler(changeStatus));
+router.get('/getSingle/:uuid',asyncHandler(authMiddleware), asyncHandler(getSingleUser));
 
-export default router;
+export default router;  

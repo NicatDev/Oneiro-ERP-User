@@ -32,11 +32,13 @@ const swaggerOptions = {
       '/auth/login': docs.loginDoc,
       '/auth/refresh': docs.refreshDoc,
       '/auth/logout': docs.logoutDoc,
-      '/modules': docs.moduleDoc,
+      '/modules': {...docs.moduleCreateDoc,...docs.moduleDoc},
+      '/modules/{uuid}': docs.moduleSingleDoc,
       '/users/getUserFilterableDatas': docs.userColumnGetDoc,
       '/users/changeStatus/{uuid}': docs.userChangeStatusDoc,
       '/users': { ...docs.userGetDoc, ...docs.userPostDoc },
-      '/users/{uuid}': docs.userPutDoc
+      '/users/{uuid}': docs.userPutDoc,
+      '/users/getSingle/{uuid}': docs.userSingleGetDoc
     },
     servers: [
       {

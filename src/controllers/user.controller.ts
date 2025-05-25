@@ -206,3 +206,27 @@ export const changeStatus = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Status dəyişdirilərkən server xətası baş verdi.' });
   }
 };
+
+
+export const getSingleUser = async (req: Request, res: Response) => {
+  const { uuid } = req.params;
+
+  if (!uuid) {
+    return res.status(400).json({ message: 'UUID parametresi gereklidir.' });
+  }
+
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE uuid = $1', [uuid]);
+
+    if (rows.length === 0) {
+      console.log(rows,'--')
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
+    }
+
+    const user = rows[0];
+    res.status(200).json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Kullanıcı getirilemedi. Sunucu hatası oluştu.' });
+  }
+};
