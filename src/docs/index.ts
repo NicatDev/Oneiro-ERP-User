@@ -10,6 +10,8 @@ import { userPutDoc } from './userPut.doc';
 import { userPostDoc } from './userPost.doc';
 import { userGetDoc } from './userGet.doc';
 import { userSingleGetDoc } from './userSingleGet.doc';
+import { userDropdownListDoc } from './userGetDropdownList.doc';
+import { resetPasswordDoc } from './userResetPassowrd.doc';
 
 export const docs = {
     //auth
@@ -28,5 +30,7 @@ export const docs = {
     userGetDoc, 
     userPostDoc, 
     userPutDoc,
-    userSingleGetDoc
+    userSingleGetDoc,
+    userDropdownListDoc,
+    resetPasswordDoc
 };

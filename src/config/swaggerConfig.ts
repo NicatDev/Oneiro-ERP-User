@@ -38,7 +38,10 @@ const swaggerOptions = {
       '/users/changeStatus/{uuid}': docs.userChangeStatusDoc,
       '/users': { ...docs.userGetDoc, ...docs.userPostDoc },
       '/users/{uuid}': docs.userPutDoc,
-      '/users/getSingle/{uuid}': docs.userSingleGetDoc
+      '/users/getSingle/{uuid}': docs.userSingleGetDoc,
+      '/users/getDropdownList': docs.userDropdownListDoc,
+      '/users/resetPassword/{uuid}': docs.resetPasswordDoc
+      
     },
     servers: [
       {
