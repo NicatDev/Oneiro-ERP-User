@@ -230,3 +230,73 @@ export const getSingleUser = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Kullanıcı getirilemedi. Sunucu hatası oluştu.' });
   }
 };
+
+
+export const getDropdownList = async (req: Request, res: Response) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = parseInt(req.query.pageSize as string) || 10;
+  const offset = (page - 1) * pageSize;
+
+  try {
+    const countQuery = `SELECT COUNT(*) FROM users WHERE is_active = true`;
+    const { rows: countRows } = await pool.query(countQuery);
+    const total = parseInt(countRows[0].count);
+
+    const query = `
+      SELECT uuid AS value, CONCAT(first_name, ' ', last_name) AS name
+      FROM users
+      WHERE is_active = true
+      ORDER BY first_name, last_name
+      LIMIT $1 OFFSET $2
+    `;
+    const { rows } = await pool.query(query, [pageSize, offset]);
+
+    res.status(200).json({
+      data: rows,
+      pagination: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    });
+  } catch (error) {
+    console.error('Dropdown list error:', error);
+    res.status(500).json({ message: 'Server error. Dropdown list could not be retrieved.' });
+  }
+};
+
+
+export const resetPassword = async (req: Request, res: Response) => {
+  const { uuid } = req.params;
+  const { password_hash } = req.body;
+
+  if (!uuid) {
+    return res.status(400).json({ message: 'UUID tələb olunur.' });
+  }
+
+  if (!password_hash || typeof password_hash !== 'string') {
+    return res.status(400).json({ message: 'Yeni şifrə göndərilməlidir.' });
+  }
+
+  if (password_hash.length < 5) {
+    return res.status(400).json({ message: 'Şifrə çox qısadır (minimum 5 simvol).' });
+  }
+
+  try {
+    const { rows: existingUsers } = await pool.query('SELECT * FROM users WHERE uuid = $1', [uuid]);
+
+    if (existingUsers.length === 0) {
+      return res.status(404).json({ message: 'İstifadəçi tapılmadı.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password_hash, 10);
+
+    await pool.query('UPDATE users SET password_hash = $1 WHERE uuid = $2', [hashedPassword, uuid]);
+
+    res.status(200).json({ message: 'Şifrə uğurla yeniləndi.' });
+  } catch (error) {
+    console.error('resetPassword error:', error);
+    res.status(500).json({ message: 'Server xətası baş verdi. Şifrə yenilənmədi.' });
+  }
+};
