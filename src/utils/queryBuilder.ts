@@ -5,14 +5,11 @@ export const filterData = (filters: { [key: string]: string | undefined }): { qu
   Object.keys(filters).forEach((key) => {
     if (key.startsWith('filter[')) {
       const fieldName = key.replace('filter[', '').replace(']', '');
-      if (filters[key] === '') {
-        return;
-      }
+      const value = filters[key];
+      if (value === '' || fieldName === 'password' || fieldName === 'last_login') return;
 
-      if (fieldName !== 'password' && fieldName !== 'last_login') {
-        filterConditions.push(`${fieldName} = ?`);
-        queryParams.push(filters[key]);
-      }
+      queryParams.push(value);
+      filterConditions.push(`${fieldName} = $${queryParams.length}`); // PostgreSQL-style placeholder
     }
   });
 
@@ -20,18 +17,17 @@ export const filterData = (filters: { [key: string]: string | undefined }): { qu
   return { query, params: queryParams };
 };
 
-export const searchData = (searchTerm: string | undefined): { query: string, params: any[] } => {
+export const searchData = (searchTerm: string | undefined, startingIndex: number): { query: string, params: any[] } => {
   let searchConditions: string[] = [];
   let queryParams: any[] = [];
 
   if (searchTerm) {
     const searchValue = searchTerm.toLowerCase();
-
     const searchFields = ['first_name', 'last_name', 'email', 'phone_number'];
 
-    searchFields.forEach((field) => {
-      searchConditions.push(`${field} LIKE ?`);
+    searchFields.forEach((field, index) => {
       queryParams.push(`%${searchValue}%`);
+      searchConditions.push(`${field} ILIKE $${startingIndex + index}`); // ILIKE for case-insensitive
     });
   }
 

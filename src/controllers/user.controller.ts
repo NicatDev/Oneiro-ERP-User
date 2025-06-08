@@ -80,14 +80,22 @@ export const getUsers = async (req: Request, res: Response) => {
 
   try {
     const { query: filterQuery, params: filterParams } = filterData(filters);
-    const { query: searchQuery, params: searchParams } = searchData(filters.search);
+    const { query: searchQuery, params: searchParams } = searchData(filters.search, filterParams.length + 1);
     const { query: sortQuery } = sortData(filters);
 
     let query = `SELECT * FROM users ${filterQuery}`;
     let queryParams = [...filterParams, ...searchParams];
 
-    if (searchQuery) {
-      query += filterQuery ? ` AND ${searchQuery}` : ` WHERE ${searchQuery}`;
+    if (filterQuery || searchQuery) {
+      query += ' WHERE ';
+      const conditions = [];
+      if (filterQuery) {
+        conditions.push(filterQuery.replace(/^WHERE\s+/i, ''));
+      }
+      if (searchQuery) {
+        conditions.push(searchQuery);
+      }
+      query += conditions.join(' AND ');
     }
 
     query += ` ${sortQuery} LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
@@ -119,8 +127,8 @@ export const createUser = async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'Email is required.' });
   } else if (!password_hash) {
     return res.status(400).json({ message: 'Password is required.' });
-  } else if (password_hash?.length<5){
-        return res.status(400).json({ message: 'Password is too short.' });
+  } else if (password_hash?.length < 5) {
+    return res.status(400).json({ message: 'Password is too short.' });
   }
 
   try {
@@ -219,7 +227,7 @@ export const getSingleUser = async (req: Request, res: Response) => {
     const { rows } = await pool.query('SELECT * FROM users WHERE uuid = $1', [uuid]);
 
     if (rows.length === 0) {
-      console.log(rows,'--')
+      console.log(rows, '--')
       return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
     }
 
